@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gmail OAuth + Firestore — Full Setup Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080810;--surface:#0f0f1a;--surface2:#141422;--surface3:#1a1a2e;
+  --border:#1e1e32;--border2:#28283f;
+  --accent:#3b82f6;--accent2:#6366f1;
+  --green:#10b981;--yellow:#f59e0b;--red:#f43f5e;--cyan:#22d3ee;--orange:#f97316;
+  --text:#e0e0f0;--text2:#7878a0;--text3:#3a3a55;
+  --mono:'IBM Plex Mono',monospace;--sans:'DM Sans',sans-serif;
+  --sidebar-w:260px;--r:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:15px}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(59,130,246,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0}
+
+/* HAMBURGER */
+#hamburger{display:none;position:fixed;top:14px;left:14px;z-index:200;width:40px;height:40px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;cursor:pointer;flex-direction:column;align-items:center;justify-content:center;gap:5px}
+#hamburger span{display:block;width:18px;height:2px;background:var(--text2);border-radius:2px;transition:all .25s}
+#hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+#hamburger.open span:nth-child(2){opacity:0}
+#hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+#nav-overlay{display:none;position:fixed;inset:0;z-index:98;background:rgba(0,0,0,.6);backdrop-filter:blur(2px)}
+#nav-overlay.vis{display:block}
+
+/* LAYOUT */
+.shell{position:relative;z-index:1;display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+
+/* SIDEBAR */
+nav#sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;border-right:1px solid var(--border2);background:rgba(8,8,16,.97);backdrop-filter:blur(16px);padding:0 0 40px;transition:transform .3s ease;z-index:99;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.nav-logo{padding:26px 20px 20px;border-bottom:1px solid var(--border);margin-bottom:6px;position:sticky;top:0;background:rgba(8,8,16,.98);z-index:2}
+.logo-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:9px}
+.logo-badge::before{content:'';display:block;width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+.nav-logo h1{font-size:14px;font-weight:800;color:#fff;line-height:1.3}
+.nav-logo p{font-size:11px;color:var(--text2);margin-top:3px}
+.nav-group{margin-bottom:2px}
+.nav-group-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);padding:13px 20px 4px}
+nav a.nav-link{display:flex;align-items:center;gap:9px;padding:8px 20px;font-size:13px;font-weight:500;color:var(--text2);text-decoration:none;border-left:2px solid transparent;transition:all .15s}
+nav a.nav-link .ni{font-size:13px;flex-shrink:0;opacity:.7}
+nav a.nav-link:hover{color:var(--text);background:rgba(59,130,246,.06);border-left-color:rgba(59,130,246,.4)}
+nav a.nav-link.active{color:#fff;background:rgba(59,130,246,.1);border-left-color:var(--accent)}
+nav a.nav-link.active .ni{opacity:1}
+nav a.nav-link .nd{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background .2s}
+
+/* MAIN */
+main{padding:48px 52px 100px;max-width:900px;animation:fadeIn .5s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* HERO */
+.hero{padding-bottom:44px;margin-bottom:52px;border-bottom:1px solid var(--border)}
+.hero-ey{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:500;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:18px}
+.hero h2{font-size:clamp(30px,5vw,50px);font-weight:800;line-height:1.08;color:#fff;margin-bottom:16px}
+.hero h2 em{font-style:normal;background:linear-gradient(90deg,var(--accent),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:15px;color:var(--text2);max-width:520px;line-height:1.75}
+.tag-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.tag{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;font-weight:600;padding:5px 12px;border-radius:100px;border:1px solid}
+.tag.g{color:var(--green);border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.06)}
+.tag.b{color:var(--accent);border-color:rgba(59,130,246,.25);background:rgba(59,130,246,.06)}
+.tag.c{color:var(--cyan);border-color:rgba(34,211,238,.25);background:rgba(34,211,238,.06)}
+.tag.o{color:var(--orange);border-color:rgba(249,115,22,.25);background:rgba(249,115,22,.06)}
+
+/* SECTIONS */
+section{margin-bottom:60px;scroll-margin-top:24px}
+.sec-head{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.sec-num{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);padding:3px 9px;border-radius:5px;letter-spacing:1px;flex-shrink:0}
+.sec-head h3{font-size:19px;font-weight:800;color:#fff}
+
+/* STEPS */
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:flex;gap:14px;padding:15px 17px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);transition:border-color .15s}
+.step:hover{border-color:var(--border2)}
+.step-n{width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:1px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.step-b strong{display:block;font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.step-b p{font-size:13px;color:var(--text2);line-height:1.55}
+.ext-link{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--cyan);text-decoration:none;margin-top:8px;padding:3px 9px;border:1px solid rgba(34,211,238,.2);border-radius:4px;background:rgba(34,211,238,.04);transition:all .15s}
+.ext-link:hover{background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.4)}
+
+/* CODE */
+.code-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:14px 0}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;background:var(--surface2);border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.code-label{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:8px}
+.code-label::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.copy-btn{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text2);background:var(--border);border:1px solid var(--border2);padding:4px 12px;border-radius:4px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.copy-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.copy-btn.copied{background:var(--green);color:#fff;border-color:var(--green)}
+pre{padding:18px 20px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--text);white-space:pre;tab-size:2}
+.k{color:#818cf8}.s{color:#86efac}.c{color:#3d3d5c}.f{color:var(--cyan)}.n{color:#fbbf24}.t{color:#7dd3fc}
+
+/* TERMINAL */
+.terminal{background:#04040a;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:14px 0}
+.term-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#080810;border-bottom:1px solid var(--border)}
+.term-dots{display:flex;gap:6px}
+.term-dots span{width:10px;height:10px;border-radius:50%}
+.term-dots span:nth-child(1){background:#ff5f57}
+.term-dots span:nth-child(2){background:#febc2e}
+.term-dots span:nth-child(3){background:#28c840}
+.term-title{font-family:var(--mono);font-size:11px;color:var(--text3);flex:1;text-align:center}
+.term-copy{font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--border);border:1px solid var(--border2);padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .15s}
+.term-copy:hover{background:var(--accent);color:#fff}
+.term-copy.copied{background:var(--green);color:#fff}
+.terminal pre{font-size:12.5px}
+.tp{color:var(--accent)}.tc{color:var(--text)}.to{color:var(--text3)}.tok{color:var(--green)}.tw{color:var(--yellow)}
+
+/* ENV FORM */
+.env-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.env-form-head{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.env-form-head span{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)}
+.env-form-head small{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.env-fields{padding:18px;display:flex;flex-direction:column;gap:10px}
+.field-row{display:grid;grid-template-columns:minmax(180px,240px) 1fr;gap:10px;align-items:center}
+.field-key{font-family:var(--mono);font-size:12px;font-weight:600;color:#7c9ef7;word-break:break-all}
+.field-row input,.field-row select{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:6px;outline:none;transition:border-color .15s;width:100%}
+.field-row input::placeholder{color:var(--text3)}
+.field-row input:focus,.field-row select:focus{border-color:var(--accent)}
+.field-row select{color:var(--text2)}
+.field-row select option{background:var(--surface2)}
+.env-actions{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+.env-preview{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px 18px;font-family:var(--mono);font-size:12px;line-height:2;margin:0 18px 16px;display:none;overflow-x:auto;white-space:pre}
+.env-preview.show{display:block}
+.btn-primary{font-family:var(--mono);font-size:12px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;padding:9px 18px;border-radius:6px;cursor:pointer;transition:opacity .15s;letter-spacing:.3px}
+.btn-primary:hover{opacity:.85}
+.btn-sec{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);padding:8px 16px;border-radius:6px;cursor:pointer;transition:all .15s}
+.btn-sec:hover{color:var(--text);border-color:var(--text2)}
+
+/* CALLOUT */
+.callout{display:flex;gap:14px;padding:14px 16px;border-radius:8px;border:1px solid;margin:14px 0;font-size:13px;line-height:1.6}
+.callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.callout.info{background:rgba(59,130,246,.05);border-color:rgba(59,130,246,.18);color:#93c5fd}
+.callout.warn{background:rgba(245,158,11,.05);border-color:rgba(245,158,11,.18);color:#fde68a}
+.callout.ok{background:rgba(16,185,129,.05);border-color:rgba(16,185,129,.18);color:#6ee7b7}
+.callout.danger{background:rgba(244,63,94,.05);border-color:rgba(244,63,94,.18);color:#fda4af}
+.callout code{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.data-table th{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text2);background:var(--surface2);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+.data-table td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(255,255,255,.015)}
+.data-table td:first-child{font-family:var(--mono);font-size:11px;color:var(--green);white-space:nowrap}
+.data-table td:nth-child(2){font-family:var(--mono);font-size:11px;color:#f9a8d4}
+.data-table td code{font-family:var(--mono);font-size:11px;color:var(--cyan);background:rgba(34,211,238,.07);padding:1px 5px;border-radius:3px}
+
+/* CHECKLIST */
+.checklist{display:flex;flex-direction:column;gap:6px;padding:16px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r)}
+.chk{display:flex;align-items:flex-start;gap:12px;font-size:13px;color:var(--text2);cursor:pointer;padding:6px 8px;border-radius:6px;transition:background .1s;user-select:none}
+.chk:hover{background:rgba(255,255,255,.02)}
+.chk input{display:none}
+.chkbox{width:18px;height:18px;border-radius:4px;border:1px solid var(--border2);background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:11px;transition:all .15s}
+.chk.done .chkbox{background:var(--green);border-color:var(--green);color:#fff}
+.chk.done .chk-text{color:var(--text3);text-decoration:line-through}
+
+/* SCHEMA CARD */
+.schema-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.schema-title{padding:11px 18px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.schema-title .col-name{color:var(--orange)}
+.schema-title .col-path{color:var(--text3);font-size:11px}
+
+/* FILE TABS */
+.file-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--surface2);overflow-x:auto}
+.file-tab{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text2);padding:9px 16px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.file-tab:hover{color:var(--text)}
+.file-tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(59,130,246,.05)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+.tab-pane pre{border-radius:0;border:none;background:var(--surface)}
+
+/* MOBILE */
+@media(max-width:768px){
+  #hamburger{display:flex}
+  .shell{grid-template-columns:1fr}
+  nav#sidebar{position:fixed;top:0;left:0;height:100vh;width:280px;transform:translateX(-100%);z-index:99;transition:transform .3s ease}
+  nav#sidebar.open{transform:translateX(0)}
+  main{padding:64px 18px 80px;max-width:100%}
+  .hero h2{font-size:26px}
+  .field-row{grid-template-columns:1fr;gap:4px}
+  .field-key{font-size:11px}
+  .env-actions{flex-direction:column}
+  .env-actions button{width:100%;text-align:center}
+  .data-table{font-size:12px}
+  .data-table th,.data-table td{padding:8px 10px}
+  pre{font-size:11.5px;padding:14px}
+  .sec-head h3{font-size:17px}
+}
+</style>
+</head>
+<body>
+
+<button id="hamburger" aria-label="Open menu" onclick="toggleNav()">
+  <span></span><span></span><span></span>
+</button>
+<div id="nav-overlay" onclick="toggleNav()"></div>
+
+<div class="shell">
+<nav id="sidebar">
+  <div class="nav-logo">
+    <div class="logo-badge">Live Guide</div>
+    <h1>Gmail OAuth<br>+ Firestore DB</h1>
+    <p>Full setup · Tokens · Mail sync</p>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Foundation</div>
+    <a class="nav-link" href="#overview" onclick="closeNav()"><span class="ni">🗺</span>Overview<span class="nd"></span></a>
+    <a class="nav-link" href="#prerequisites" onclick="closeNav()"><span class="ni">📋</span>Prerequisites<span class="nd"></span></a>
+    <a class="nav-link" href="#cloud-setup" onclick="closeNav()"><span class="ni">☁️</span>Google Cloud<span class="nd"></span></a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Database</div>
+    <a class="nav-link" href="#db-schema" onclick="closeNav()"><span class="ni">🗄</span>Firestore Schema<span class="nd"></span></a>
+    <a class="nav-link" href="#db-rules" onclick="closeNav()"><span class="ni">🔒</span>Security Rules<span class="nd"></span></a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Config</div>
+    <a class="nav-link" href="#env-gen" onclick="closeNav()"><span class="ni">⚙️</span>.env Generator<span class="nd"></span></a>
+    <a class="nav-link" href="#install" onclick="closeNav()"><span class="ni">📦</span>Install &amp; Terminal<span class="nd"></span></a>
+    <a class="nav-link" href="#scopes" onclick="closeNav()"><span class="ni">🔑</span>Gmail Scopes<span class="nd"></span></a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Code Files</div>
+    <a class="nav-link" href="#firebase-init" onclick="closeNav()"><span class="ni">🔥</span>firebase.js<span class="nd"></span></a>
+    <a class="nav-link" href="#auth-login" onclick="closeNav()"><span class="ni">🚪</span>auth.js<span class="nd"></span></a>
+    <a class="nav-link" href="#user-db" onclick="closeNav()"><span class="ni">💾</span>userDB.js<span class="nd"></span></a>
+    <a class="nav-link" href="#token-mgr" onclick="closeNav()"><span class="ni">🔄</span>tokenManager.js<span class="nd"></span></a>
+    <a class="nav-link" href="#gmail-client" onclick="closeNav()"><span class="ni">📧</span>gmail.js<span class="nd"></span></a>
+    <a class="nav-link" href="#sync-engine" onclick="closeNav()"><span class="ni">⚡</span>sync.js<span class="nd"></span></a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">Ship It</div>
+    <a class="nav-link" href="#prod-checklist" onclick="closeNav()"><span class="ni">✅</span>Prod Checklist<span class="nd"></span></a>
+    <a class="nav-link" href="#docs" onclick="closeNav()"><span class="ni">📚</span>Official Docs<span class="nd"></span></a>
+  </div>
+</nav>
+
+<main>
+
+<div class="hero">
+  <div class="hero-ey">// Complete Developer Setup Guide</div>
+  <h2>Gmail OAuth<br>+ <em>Firestore</em> DB</h2>
+  <p>Everything wired — user login, Firestore DB for all tokens &amp; profile data, auto token refresh, and a Gmail API client with incremental mail sync. Production-ready from day one.</p>
+  <div class="tag-row">
+    <span class="tag g">✓ Firebase Auth</span>
+    <span class="tag b">✓ Firestore DB</span>
+    <span class="tag c">✓ Gmail API</span>
+    <span class="tag o">✓ Token Refresh</span>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="sec-head"><span class="sec-num">01</span><h3>How Everything Connects</h3></div>
+  <div class="steps">
+    <div class="step"><div class="step-n">1</div><div class="step-b"><strong>User clicks "Login with Google"</strong><p>Firebase opens a Google popup. Gmail scopes are requested at this moment — so the user approves Gmail access during login.</p></div></div>
+    <div class="step"><div class="step-n">2</div><div class="step-b"><strong>Google returns 3 things</strong><p><code style="font-family:var(--mono);font-size:11px;color:var(--cyan)">user</code> (name, email, photo) + <code style="font-family:var(--mono);font-size:11px;color:var(--cyan)">accessToken</code> (1hr, for Gmail API) + <code style="font-family:var(--mono);font-size:11px;color:var(--cyan)">refreshToken</code> (forever, to silently renew).</p></div></div>
+    <div class="step"><div class="step-n">3</div><div class="step-b"><strong>Save everything to Firestore</strong><p>We upsert a user document at <code style="font-family:var(--mono);font-size:11px;color:var(--orange)">users/{uid}</code> with name, email, photo, both tokens, expiry time, and sync state. Single source of truth.</p></div></div>
+    <div class="step"><div class="step-n">4</div><div class="step-b"><strong>Every Gmail API call goes through tokenManager.js</strong><p>Before any request it checks if the token is expired. If yes — uses the refreshToken to silently get a new one, updates Firestore, then continues. User never gets logged out.</p></div></div>
+    <div class="step"><div class="step-n">5</div><div class="step-b"><strong>sync.js stores historyId for incremental mail sync</strong><p>After first sync we store Gmail's <code style="font-family:var(--mono);font-size:11px;color:var(--cyan)">historyId</code> in Firestore. Every poll only fetches new messages since that ID — not the whole mailbox.</p></div></div>
+  </div>
+</section>
+
+<!-- PREREQUISITES -->
+<section id="prerequisites">
+  <div class="sec-head"><span class="sec-num">02</span><h3>Prerequisites</h3></div>
+  <div class="checklist">
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Node.js v18+ installed</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Google account ready</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Firebase project created — <a class="ext-link" href="https://console.firebase.google.com" target="_blank" style="display:inline-flex">console.firebase.google.com ↗</a></span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Firestore database created (test mode is fine for dev)</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Google Cloud project linked to your Firebase project</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">npm or yarn installed</span></label>
+  </div>
+</section>
+
+<!-- GOOGLE CLOUD SETUP -->
+<section id="cloud-setup">
+  <div class="sec-head"><span class="sec-num">03</span><h3>Google Cloud Setup</h3></div>
+  <div class="steps">
+    <div class="step"><div class="step-n">1</div><div class="step-b"><strong>Enable Gmail API</strong><p>Cloud Console → APIs &amp; Services → Library → search "Gmail API" → Enable.</p><a class="ext-link" href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank">↗ Enable Gmail API</a></div></div>
+    <div class="step"><div class="step-n">2</div><div class="step-b"><strong>Create OAuth 2.0 Credentials</strong><p>Credentials → Create → OAuth Client ID → Web Application. Add <code style="font-family:var(--mono);font-size:11px">http://localhost:5173</code> for dev and your prod URL to authorized origins.</p><a class="ext-link" href="https://console.cloud.google.com/apis/credentials" target="_blank">↗ Create Credentials</a></div></div>
+    <div class="step"><div class="step-n">3</div><div class="step-b"><strong>Configure OAuth Consent Screen</strong><p>Add app name, support email, logo. Add Gmail scopes. For testing add your email as a test user. For public launch submit for Google verification.</p><a class="ext-link" href="https://console.cloud.google.com/apis/credentials/consent" target="_blank">↗ Consent Screen</a></div></div>
+    <div class="step"><div class="step-n">4</div><div class="step-b"><strong>Enable Google Sign-in in Firebase</strong><p>Firebase Console → Authentication → Sign-in method → Google → Enable. Paste your Google OAuth Client ID and Secret.</p><a class="ext-link" href="https://console.firebase.google.com" target="_blank">↗ Firebase Console</a></div></div>
+    <div class="step"><div class="step-n">5</div><div class="step-b"><strong>Create Firestore Database</strong><p>Firebase Console → Firestore Database → Create Database → choose your region → Start in test mode (we'll add proper rules in section 05).</p></div></div>
+  </div>
+</section>
+
+<!-- DB SCHEMA -->
+<section id="db-schema">
+  <div class="sec-head"><span class="sec-num">04</span><h3>Firestore Database Schema</h3></div>
+  <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Every user who logs in gets one document in the <code style="font-family:var(--mono);font-size:11px;color:var(--orange)">users</code> collection. Stores everything needed to keep them logged in and sync their mail.</p>
+  <div class="schema-card">
+    <div class="schema-title">
+      <span>📁</span>
+      <span class="col-name">users</span>
+      <span class="col-path">/ {uid} / → document</span>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>uid</td><td>string</td><td>Firebase user ID — also the document ID</td></tr>
+        <tr><td>email</td><td>string</td><td>User's Gmail address e.g. <code>john@gmail.com</code></td></tr>
+        <tr><td>displayName</td><td>string</td><td>Full name from Google profile</td></tr>
+        <tr><td>photoURL</td><td>string</td><td>Profile picture URL from Google</td></tr>
+        <tr><td>accessToken</td><td>string</td><td>Current OAuth access token — used for all Gmail API calls</td></tr>
+        <tr><td>refreshToken</td><td>string</td><td>Long-lived token to silently get new access tokens when expired</td></tr>
+        <tr><td>tokenExpiresAt</td><td>timestamp</td><td>Expiry time of access token (now + 1 hour)</td></tr>
+        <tr><td>scope</td><td>string</td><td>Gmail scopes granted by the user</td></tr>
+        <tr><td>historyId</td><td>string</td><td>Gmail history ID for incremental sync — only fetch new messages</td></tr>
+        <tr><td>lastSyncAt</td><td>timestamp</td><td>When we last ran a mail sync for this user</td></tr>
+        <tr><td>syncEnabled</td><td>boolean</td><td>Whether background mail sync is active</td></tr>
+        <tr><td>createdAt</td><td>timestamp</td><td>First login / account creation time</td></tr>
+        <tr><td>updatedAt</td><td>timestamp</td><td>Last time this document was updated</td></tr>
+        <tr><td>loginCount</td><td>number</td><td>Auto-increments on each login</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout info" style="margin-top:14px">
+    <span class="callout-icon">💡</span>
+    <div><strong>Why store tokens in Firestore?</strong> So your backend can also call the Gmail API on behalf of the user — e.g. background sync jobs, scheduled tasks, server-side processing. The <code>refreshToken</code> is the critical one. Without it, users have to re-login every hour.</div>
+  </div>
+</section>
+
+<!-- SECURITY RULES -->
+<section id="db-rules">
+  <div class="sec-head"><span class="sec-num">05</span><h3>Firestore Security Rules</h3></div>
+  <p style="color:var(--text2);font-size:13px;margin-bottom:14px">Deploy these rules so users can only access their own document. No one else can read your tokens.</p>
+  <div class="code-block">
+    <div class="code-header"><span class="code-label">firestore.rules</span><button class="copy-btn" onclick="copyEl('rules-code',this)">Copy</button></div>
+    <pre id="rules-code"><span class="k">rules_version</span> = <span class="s">'2'</span>;
+<span class="k">service</span> cloud.firestore {
+  <span class="k">match</span> /databases/{database}/documents {
+
+    <span class="c">// Users collection — each user owns their own doc only</span>
+    <span class="k">match</span> /users/{userId} {
+
+      <span class="c">// Read: only the authenticated owner</span>
+      <span class="k">allow</span> read: <span class="k">if</span> request.auth != <span class="k">null</span>
+                  && request.auth.uid == userId;
+
+      <span class="c">// Write: only the owner, and they cannot change their uid</span>
+      <span class="k">allow</span> write: <span class="k">if</span> request.auth != <span class="k">null</span>
+                   && request.auth.uid == userId
+                   && request.resource.data.uid == userId;
+    }
+  }
+}</pre>
+  </div>
+  <div class="terminal">
+    <div class="term-bar"><div class="term-dots"><span></span><span></span><span></span></div><div class="term-title">Deploy rules</div><button class="term-copy" onclick="copyEl('rules-term',this)">Copy</button></div>
+    <pre id="rules-term"><span class="tp">$</span> <span class="tc">firebase deploy --only firestore:rules</span>
+<span class="tok">✔  Deployed Firestore rules</span></pre>
+  </div>
+</section>
+
+<!-- ENV GENERATOR -->
+<section id="env-gen">
+  <div class="sec-head"><span class="sec-num">06</span><h3>.env File Generator</h3></div>
+  <div class="env-form">
+    <div class="env-form-head"><span>// .env</span><small>⚠ NEVER commit to git</small></div>
+    <div class="env-fields">
+      <div class="field-row"><span class="field-key">VITE_FIREBASE_API_KEY</span><input id="e1" type="text" placeholder="AIzaSy..."/></div>
+      <div class="field-row"><span class="field-key">VITE_FIREBASE_AUTH_DOMAIN</span><input id="e2" type="text" placeholder="myapp.firebaseapp.com"/></div>
+      <div class="field-row"><span class="field-key">VITE_FIREBASE_PROJECT_ID</span><input id="e3" type="text" placeholder="my-project-id"/></div>
+      <div class="field-row"><span class="field-key">VITE_FIREBASE_STORAGE_BUCKET</span><input id="e4" type="text" placeholder="myapp.appspot.com"/></div>
+      <div class="field-row"><span class="field-key">VITE_FIREBASE_MESSAGING_SENDER_ID</span><input id="e5" type="text" placeholder="123456789012"/></div>
+      <div class="field-row"><span class="field-key">VITE_FIREBASE_APP_ID</span><input id="e6" type="text" placeholder="1:123:web:abc"/></div>
+      <div class="field-row"><span class="field-key">VITE_GOOGLE_CLIENT_ID</span><input id="e7" type="text" placeholder="123456-xxx.apps.googleusercontent.com"/></div>
+      <div class="field-row"><span class="field-key">VITE_GOOGLE_CLIENT_SECRET</span><input id="e8" type="password" placeholder="GOCSPX-..."/></div>
+      <div class="field-row"><span class="field-key">VITE_APP_ENV</span>
+        <select id="e9"><option value="development">development</option><option value="production">production</option></select>
+      </div>
+    </div>
+    <div class="env-preview" id="env-out"></div>
+    <div class="env-actions">
+      <button class="btn-primary" onclick="genEnv()">Generate .env</button>
+      <button class="btn-sec" id="env-copy-btn" onclick="copyEnv()" style="display:none">Copy</button>
+      <button class="btn-sec" onclick="clearEnv()">Clear</button>
+    </div>
+  </div>
+  <div class="callout danger"><span class="callout-icon">🚨</span><div>Add <code>.env</code> and <code>.env.local</code> to <code>.gitignore</code> right now. Your <code>refreshToken</code> gives full Gmail access — treat it like a password.</div></div>
+</section>
+
+<!-- INSTALL -->
+<section id="install">
+  <div class="sec-head"><span class="sec-num">07</span><h3>Install &amp; Project Setup</h3></div>
+  <div class="terminal">
+    <div class="term-bar"><div class="term-dots"><span></span><span></span><span></span></div><div class="term-title">bash — full setup</div><button class="term-copy" onclick="copyEl('install-term',this)">Copy</button></div>
+    <pre id="install-term"><span class="tp">$</span> <span class="tc">npm create vite@latest my-gmail-app -- --template react</span>
+<span class="tp">$</span> <span class="tc">cd my-gmail-app</span>
+
+<span class="to"># Install all dependencies</span>
+<span class="tp">$</span> <span class="tc">npm install firebase googleapis</span>
+<span class="tok">✓ firebase, googleapis installed</span>
+
+<span class="to"># Firebase CLI for deploying Firestore rules</span>
+<span class="tp">$</span> <span class="tc">npm install -g firebase-tools</span>
+<span class="tp">$</span> <span class="tc">firebase login</span>
+<span class="tp">$</span> <span class="tc">firebase init firestore</span>
+<span class="tok">✓ firestore.rules created</span>
+
+<span class="to"># Protect your .env</span>
+<span class="tp">$</span> <span class="tc">echo ".env" >> .gitignore</span>
+<span class="tok">✓ .env protected</span>
+
+<span class="tp">$</span> <span class="tc">npm run dev</span>
+<span class="tok">  ➜  Local: http://localhost:5173/</span></pre>
+  </div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-label">File structure</span></div>
+    <pre><span class="s">src/</span>
+  <span class="f">firebase.js</span>       <span class="c">← init Firebase app + Firestore instance</span>
+  <span class="f">auth.js</span>           <span class="c">← Google login / logout</span>
+  <span class="f">userDB.js</span>         <span class="c">← save/load/update user in Firestore</span>
+  <span class="f">tokenManager.js</span>   <span class="c">← check expiry + silent token refresh</span>
+  <span class="f">gmail.js</span>          <span class="c">← all Gmail API calls</span>
+  <span class="f">sync.js</span>           <span class="c">← incremental mail sync engine</span></pre>
+  </div>
+</section>
+
+<!-- SCOPES -->
+<section id="scopes">
+  <div class="sec-head"><span class="sec-num">08</span><h3>Gmail Scopes Reference</h3></div>
+  <table class="data-table">
+    <thead><tr><th>Scope</th><th>Short URL</th><th>What it allows</th></tr></thead>
+    <tbody>
+      <tr><td>gmail.readonly</td><td><code>…/gmail.readonly</code></td><td>Read all messages and settings. No sending.</td></tr>
+      <tr><td>gmail.send</td><td><code>…/gmail.send</code></td><td>Send messages only. Cannot read inbox.</td></tr>
+      <tr><td>gmail.modify</td><td><code>…/gmail.modify</code></td><td>Read + send + archive + labels. Best for full client.</td></tr>
+      <tr><td>gmail.compose</td><td><code>…/gmail.compose</code></td><td>Create, reply, forward drafts only.</td></tr>
+      <tr><td>gmail.labels</td><td><code>…/gmail.labels</code></td><td>Manage labels and folders only.</td></tr>
+      <tr><td>gmail (full)</td><td><code>…/auth/gmail</code></td><td>⚠ Full access. Hardest Google verification tier.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn" style="margin-top:12px"><span class="callout-icon">⚡</span><div>For a custom Gmail client use <code>gmail.modify</code> + <code>gmail.send</code>. That covers reading, sending, archiving and labelling without triggering the hardest verification tier.</div></div>
+</section>
+
+<!-- FIREBASE.JS -->
+<section id="firebase-init">
+  <div class="sec-head"><span class="sec-num">09</span><h3>firebase.js — Init App &amp; Firestore</h3></div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-label">src/firebase.js</span><button class="copy-btn" onclick="copyEl('fb-code',this)">Copy</button></div>
+    <pre id="fb-code"><span class="k">import</span> { initializeApp }  <span class="k">from</span> <span class="s">"firebase/app"</span>;
+<span class="k">import</span> { getAuth }         <span class="k">from</span> <span class="s">"firebase/auth"</span>;
+<span class="k">import</span> { getFirestore }    <span class="k">from</span> <span class="s">"firebase/firestore"</span>;
+
+<span class="k">const</span> firebaseConfig = {
+  apiKey:            <span class="f">import.meta.env</span>.VITE_FIREBASE_API_KEY,
+  authDomain:        <span class="f">import.meta.env</span>.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         <span class="f">import.meta.env</span>.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     <span class="f">import.meta.env</span>.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: <span class="f">import.meta.env</span>.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             <span class="f">import.meta.env</span>.VITE_FIREBASE_APP_ID,
+};
+
+<span class="k">const</span> app = <span class="f">initializeApp</span>(firebaseConfig);
+
+<span class="k">export const</span> auth = <span class="f">getAuth</span>(app);
+<span class="k">export const</span> db   = <span class="f">getFirestore</span>(app);  <span class="c">// ← Firestore instance used by all files</span></pre>
+  </div>
+</section>
+
+<!-- AUTH.JS -->
+<section id="auth-login">
+  <div class="sec-head"><span class="sec-num">10</span><h3>auth.js — Login &amp; Logout</h3></div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-label">src/auth.js</span><button class="copy-btn" onclick="copyEl('auth-code',this)">Copy</button></div>
+    <pre id="auth-code"><span class="k">import</span> { auth }                                   <span class="k">from</span> <span class="s">"./firebase.js"</span>;
+<span class="k">import</span> { GoogleAuthProvider, signInWithPopup,
+          signOut, onAuthStateChanged }            <span class="k">from</span> <span class="s">"firebase/auth"</span>;
+<span class="k">import</span> { saveUserToDB }                           <span class="k">from</span> <span class="s">"./userDB.js"</span>;
+
+<span class="c">// Build provider with Gmail scopes</span>
+<span class="k">const</span> provider = <span class="k">new</span> <span class="t">GoogleAuthProvider</span>();
+provider.<span class="f">addScope</span>(<span class="s">"https://www.googleapis.com/auth/gmail.modify"</span>);
+provider.<span class="f">addScope</span>(<span class="s">"https://www.googleapis.com/auth/gmail.send"</span>);
+
+<span class="c">// prompt:"consent" forces Google to return refreshToken every time
+// access_type:"offline" is required to get a refreshToken at all</span>
+provider.<span class="f">setCustomParameters</span>({
+  prompt: <span class="s">"consent"</span>,
+  access_type: <span class="s">"offline"</span>,
+});
+
+<span class="c">// ─── LOGIN ─────────────────────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">loginWithGoogle</span>() {
+  <span class="k">const</span> result     = <span class="k">await</span> <span class="f">signInWithPopup</span>(auth, provider);
+  <span class="k">const</span> credential = <span class="t">GoogleAuthProvider</span>.<span class="f">credentialFromResult</span>(result);
+
+  <span class="k">const</span> tokens = {
+    accessToken:    credential.accessToken,
+    <span class="c">// refreshToken is only returned when prompt:"consent" is set</span>
+    refreshToken:   result.user.stsTokenManager?.refreshToken ?? <span class="k">null</span>,
+    tokenExpiresAt: <span class="k">new</span> <span class="t">Date</span>(<span class="t">Date</span>.<span class="f">now</span>() + <span class="n">3600</span> * <span class="n">1000</span>),
+  };
+
+  <span class="c">// Persist user + tokens to Firestore</span>
+  <span class="k">await</span> <span class="f">saveUserToDB</span>(result.user, tokens);
+
+  <span class="k">return</span> { user: result.user, ...tokens };
+}
+
+<span class="c">// ─── LOGOUT ────────────────────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">logout</span>() {
+  <span class="k">await</span> <span class="f">signOut</span>(auth);
+  sessionStorage.<span class="f">clear</span>();
+}
+
+<span class="c">// ─── WATCH AUTH STATE ──────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">onAuthChange</span>(callback) {
+  <span class="k">return</span> <span class="f">onAuthStateChanged</span>(auth, callback);
+}</pre>
+  </div>
+  <div class="callout info"><span class="callout-icon">💡</span><div><strong>prompt: "consent"</strong> is critical. Without it Google only gives the refreshToken on the very first login. If you miss storing it then, users have to fully re-authorize to get a new one.</div></div>
+</section>
+
+<!-- USERDB.JS -->
+<section id="user-db">
+  <div class="sec-head"><span class="sec-num">11</span><h3>userDB.js — Save &amp; Load User from Firestore</h3></div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-label">src/userDB.js</span><button class="copy-btn" onclick="copyEl('udb-code',this)">Copy</button></div>
+    <pre id="udb-code"><span class="k">import</span> { db }                              <span class="k">from</span> <span class="s">"./firebase.js"</span>;
+<span class="k">import</span> { doc, setDoc, getDoc,
+          serverTimestamp, increment }      <span class="k">from</span> <span class="s">"firebase/firestore"</span>;
+
+<span class="c">// ─── SAVE / UPSERT USER ────────────────────────────────
+// merge:true = upsert — create if new, update if exists
+// Called on every login so tokens are always fresh.</span>
+<span class="k">export async function</span> <span class="f">saveUserToDB</span>(firebaseUser, tokens = {}) {
+  <span class="k">const</span> ref = <span class="f">doc</span>(db, <span class="s">"users"</span>, firebaseUser.uid);
+
+  <span class="k">const</span> data = {
+    uid:         firebaseUser.uid,
+    email:       firebaseUser.email,
+    displayName: firebaseUser.displayName,
+    photoURL:    firebaseUser.photoURL,
+
+    <span class="c">// Only update token fields if we received new ones</span>
+    ...(tokens.accessToken    && { accessToken:    tokens.accessToken    }),
+    ...(tokens.refreshToken   && { refreshToken:   tokens.refreshToken   }),
+    ...(tokens.tokenExpiresAt && { tokenExpiresAt: tokens.tokenExpiresAt }),
+
+    syncEnabled: <span class="k">true</span>,
+    updatedAt:   <span class="f">serverTimestamp</span>(),
+    loginCount:  <span class="f">increment</span>(<span class="n">1</span>),
+  };
+
+  <span class="k">await</span> <span class="f">setDoc</span>(ref, data, { merge: <span class="k">true</span> });
+
+  <span class="c">// createdAt only on first save</span>
+  <span class="k">const</span> snap = <span class="k">await</span> <span class="f">getDoc</span>(ref);
+  <span class="k">if</span> (!snap.data()?.createdAt) {
+    <span class="k">await</span> <span class="f">setDoc</span>(ref, { createdAt: <span class="f">serverTimestamp</span>() }, { merge: <span class="k">true</span> });
+  }
+}
+
+<span class="c">// ─── GET USER ──────────────────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">getUserFromDB</span>(uid) {
+  <span class="k">const</span> snap = <span class="k">await</span> <span class="f">getDoc</span>(<span class="f">doc</span>(db, <span class="s">"users"</span>, uid));
+  <span class="k">return</span> snap.exists() ? snap.data() : <span class="k">null</span>;
+}
+
+<span class="c">// ─── UPDATE ANY FIELDS ─────────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">updateUserFields</span>(uid, fields) {
+  <span class="k">await</span> <span class="f">setDoc</span>(
+    <span class="f">doc</span>(db, <span class="s">"users"</span>, uid),
+    { ...fields, updatedAt: <span class="f">serverTimestamp</span>() },
+    { merge: <span class="k">true</span> }
+  );
+}
+
+<span class="c">// ─── SAVE REFRESHED TOKENS ─────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">saveRefreshedTokens</span>(uid, accessToken, expiresIn = <span class="n">3600</span>) {
+  <span class="k">await</span> <span class="f">updateUserFields</span>(uid, {
+    accessToken,
+    tokenExpiresAt: <span class="k">new</span> <span class="t">Date</span>(<span class="t">Date</span>.<span class="f">now</span>() + expiresIn * <span class="n">1000</span>),
+  });
+}
+
+<span class="c">// ─── UPDATE SYNC STATE ─────────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">updateSyncState</span>(uid, historyId) {
+  <span class="k">await</span> <span class="f">updateUserFields</span>(uid, {
+    historyId,
+    lastSyncAt: <span class="f">serverTimestamp</span>(),
+  });
+}</pre>
+  </div>
+</section>
+
+<!-- TOKEN MANAGER -->
+<section id="token-mgr">
+  <div class="sec-head"><span class="sec-num">12</span><h3>tokenManager.js — Auto Token Refresh</h3></div>
+  <div class="callout warn"><span class="callout-icon">⏱</span><div>Access tokens expire in <strong>1 hour</strong>. This module checks expiry before every Gmail call. If expired — silently refreshes using the stored refreshToken and updates Firestore. User is never logged out.</div></div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-label">src/tokenManager.js</span><button class="copy-btn" onclick="copyEl('tkn-code',this)">Copy</button></div>
+    <pre id="tkn-code"><span class="k">import</span> { getUserFromDB, saveRefreshedTokens } <span class="k">from</span> <span class="s">"./userDB.js"</span>;
+
+<span class="k">const</span> CLIENT_ID     = <span class="f">import.meta.env</span>.VITE_GOOGLE_CLIENT_ID;
+<span class="k">const</span> CLIENT_SECRET = <span class="f">import.meta.env</span>.VITE_GOOGLE_CLIENT_SECRET;
+<span class="k">const</span> TOKEN_URL     = <span class="s">"https://oauth2.googleapis.com/token"</span>;
+<span class="k">const</span> BUFFER_MS     = <span class="n">5</span> * <span class="n">60</span> * <span class="n">1000</span>;  <span class="c">// refresh 5 min before actual expiry</span>
+
+<span class="c">// ─── IS TOKEN EXPIRED ──────────────────────────────────</span>
+<span class="k">function</span> <span class="f">isExpired</span>(tokenExpiresAt) {
+  <span class="k">if</span> (!tokenExpiresAt) <span class="k">return true</span>;
+  <span class="k">const</span> exp = tokenExpiresAt?.toDate?.() ?? <span class="k">new</span> <span class="t">Date</span>(tokenExpiresAt);
+  <span class="k">return</span> exp.<span class="f">getTime</span>() - <span class="t">Date</span>.<span class="f">now</span>() < BUFFER_MS;
+}
+
+<span class="c">// ─── CALL GOOGLE'S TOKEN ENDPOINT ──────────────────────</span>
+<span class="k">async function</span> <span class="f">refreshAccessToken</span>(refreshToken) {
+  <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(TOKEN_URL, {
+    method: <span class="s">"POST"</span>,
+    headers: { <span class="s">"Content-Type"</span>: <span class="s">"application/x-www-form-urlencoded"</span> },
+    body: <span class="k">new</span> <span class="t">URLSearchParams</span>({
+      client_id:     CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type:    <span class="s">"refresh_token"</span>,
+    }),
+  });
+  <span class="k">if</span> (!res.ok) <span class="k">throw new</span> <span class="t">Error</span>(<span class="s">"Token refresh failed"</span>);
+  <span class="k">const</span> data = <span class="k">await</span> res.<span class="f">json</span>();
+  <span class="k">return</span> { accessToken: data.access_token, expiresIn: data.expires_in };
+}
+
+<span class="c">// ─── GET VALID TOKEN ───────────────────────────────────
+// The main export. Call this before every Gmail API request.</span>
+<span class="k">export async function</span> <span class="f">getValidToken</span>(uid) {
+  <span class="k">const</span> user = <span class="k">await</span> <span class="f">getUserFromDB</span>(uid);
+  <span class="k">if</span> (!user) <span class="k">throw new</span> <span class="t">Error</span>(<span class="s">"User not found in DB"</span>);
+
+  <span class="c">// Still valid → use as-is</span>
+  <span class="k">if</span> (!<span class="f">isExpired</span>(user.tokenExpiresAt)) <span class="k">return</span> user.accessToken;
+
+  <span class="c">// Expired → refresh it</span>
+  <span class="k">if</span> (!user.refreshToken) <span class="k">throw new</span> <span class="t">Error</span>(<span class="s">"No refresh token — user must re-login"</span>);
+
+  <span class="k">const</span> { accessToken, expiresIn } = <span class="k">await</span> <span class="f">refreshAccessToken</span>(user.refreshToken);
+  <span class="k">await</span> <span class="f">saveRefreshedTokens</span>(uid, accessToken, expiresIn);
+
+  <span class="k">return</span> accessToken;
+}
+
+<span class="c">// ─── WRAP ANY GMAIL CALL ───────────────────────────────
+// Usage: const data = await withToken(uid, token => callGmailApi(token))</span>
+<span class="k">export async function</span> <span class="f">withToken</span>(uid, apiFn) {
+  <span class="k">const</span> token = <span class="k">await</span> <span class="f">getValidToken</span>(uid);
+  <span class="k">try</span> {
+    <span class="k">return await</span> <span class="f">apiFn</span>(token);
+  } <span class="k">catch</span> (err) {
+    <span class="k">if</span> (err.message?.includes(<span class="s">"401"</span>)) {
+      <span class="k">throw new</span> <span class="t">Error</span>(<span class="s">"AUTH_REVOKED: User must re-login and re-authorize"</span>);
+    }
+    <span class="k">throw</span> err;
+  }
+}</pre>
+  </div>
+</section>
+
+<!-- GMAIL.JS -->
+<section id="gmail-client">
+  <div class="sec-head"><span class="sec-num">13</span><h3>gmail.js — Full API Client</h3></div>
+  <div class="file-tabs" id="gmail-tabs">
+    <div class="file-tab active" onclick="switchTab('gmail-tabs','gt1')">Base + List</div>
+    <div class="file-tab" onclick="switchTab('gmail-tabs','gt2')">Read + Send</div>
+    <div class="file-tab" onclick="switchTab('gmail-tabs','gt3')">Labels + Actions</div>
+  </div>
+  <div class="code-block" style="border-top:none;border-radius:0 0 var(--r) var(--r)">
+    <div class="code-header" style="justify-content:flex-end">
+      <button class="copy-btn" onclick="copyActiveTab('gmail-tabs',this)">Copy</button>
+    </div>
+    <div class="tab-pane active" id="gt1">
+<pre><span class="k">import</span> { withToken } <span class="k">from</span> <span class="s">"./tokenManager.js"</span>;
+
+<span class="k">const</span> BASE = <span class="s">"https://gmail.googleapis.com/gmail/v1/users/me"</span>;
+
+<span class="c">// ─── BASE FETCH ────────────────────────────────────────</span>
+<span class="k">async function</span> <span class="f">gFetch</span>(token, path, options = {}) {
+  <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(`${BASE}${path}`, {
+    ...options,
+    headers: {
+      <span class="s">"Authorization"</span>: `Bearer ${token}`,
+      <span class="s">"Content-Type"</span>:  <span class="s">"application/json"</span>,
+      ...(options.headers ?? {}),
+    },
+  });
+  <span class="k">if</span> (!res.ok) <span class="k">throw new</span> <span class="t">Error</span>(`${res.status} ${<span class="k">await</span> res.<span class="f">text</span>()}`);
+  <span class="k">return</span> res.<span class="f">json</span>();
+}
+
+<span class="c">// ─── LIST MESSAGES ─────────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">listMessages</span>(uid, query = <span class="s">"is:inbox"</span>, max = <span class="n">20</span>) {
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, `/messages?q=${<span class="f">encodeURIComponent</span>(query)}&maxResults=${max}`)
+      .<span class="f">then</span>(d => d.messages ?? [])
+  );
+}
+
+<span class="c">// ─── LIST THREADS ──────────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">listThreads</span>(uid, query = <span class="s">"is:inbox"</span>, max = <span class="n">20</span>) {
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, `/threads?q=${<span class="f">encodeURIComponent</span>(query)}&maxResults=${max}`)
+      .<span class="f">then</span>(d => d.threads ?? [])
+  );
+}
+
+<span class="c">// ─── GET PROFILE ───────────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">getProfile</span>(uid) {
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t => <span class="f">gFetch</span>(t, <span class="s">"/profile"</span>));
+}</pre>
+    </div>
+    <div class="tab-pane" id="gt2">
+<pre><span class="c">// ─── GET FULL MESSAGE ──────────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">getMessage</span>(uid, messageId) {
+  <span class="k">const</span> data = <span class="k">await</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, `/messages/${messageId}?format=full`)
+  );
+  <span class="k">const</span> h = name => data.payload.headers.<span class="f">find</span>(x => x.name === name)?.value;
+  <span class="k">return</span> {
+    id:      data.id,
+    subject: <span class="f">h</span>(<span class="s">"Subject"</span>),
+    from:    <span class="f">h</span>(<span class="s">"From"</span>),
+    to:      <span class="f">h</span>(<span class="s">"To"</span>),
+    date:    <span class="f">h</span>(<span class="s">"Date"</span>),
+    snippet: data.snippet,
+    body:    <span class="f">decodeBody</span>(data.payload),
+    labels:  data.labelIds ?? [],
+  };
+}
+
+<span class="c">// ─── SEND EMAIL ────────────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">sendEmail</span>(uid, { to, subject, body, isHtml = <span class="k">false</span> }) {
+  <span class="k">const</span> type = isHtml ? <span class="s">"text/html"</span> : <span class="s">"text/plain"</span>;
+  <span class="k">const</span> raw  = <span class="f">btoa</span>(
+    `To: ${to}\nSubject: ${subject}\nContent-Type: ${type}; charset=utf-8\n\n${body}`
+  ).<span class="f">replace</span>(<span class="s">/\+/g</span>,<span class="s">"-"</span>).<span class="f">replace</span>(<span class="s">/\//g</span>,<span class="s">"_"</span>).<span class="f">replace</span>(<span class="s">/=+$/</span>,<span class="s">""</span>);
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, <span class="s">"/messages/send"</span>, { method: <span class="s">"POST"</span>, body: <span class="t">JSON</span>.<span class="f">stringify</span>({ raw }) })
+  );
+}
+
+<span class="c">// ─── REPLY TO EMAIL ────────────────────────────────────</span>
+<span class="k">export async function</span> <span class="f">replyToEmail</span>(uid, originalMsgId, replyBody) {
+  <span class="k">const</span> orig = <span class="k">await</span> <span class="f">getMessage</span>(uid, originalMsgId);
+  <span class="k">const</span> raw  = <span class="f">btoa</span>([
+    `To: ${orig.from}`,
+    `Subject: Re: ${orig.subject}`,
+    `In-Reply-To: ${originalMsgId}`,
+    `References: ${originalMsgId}`,
+    <span class="s">`Content-Type: text/plain; charset=utf-8`</span>,
+    <span class="s">""</span>, replyBody,
+  ].<span class="f">join</span>(<span class="s">"\n"</span>)).<span class="f">replace</span>(<span class="s">/\+/g</span>,<span class="s">"-"</span>).<span class="f">replace</span>(<span class="s">/\//g</span>,<span class="s">"_"</span>).<span class="f">replace</span>(<span class="s">/=+$/</span>,<span class="s">""</span>);
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, <span class="s">"/messages/send"</span>, {
+      method: <span class="s">"POST"</span>,
+      body: <span class="t">JSON</span>.<span class="f">stringify</span>({ raw, threadId: orig.id }),
+    })
+  );
+}
+
+<span class="c">// ─── DECODE BODY ───────────────────────────────────────</span>
+<span class="k">function</span> <span class="f">decodeBody</span>(payload) {
+  <span class="k">const</span> dec = s => <span class="f">atob</span>(s.<span class="f">replace</span>(<span class="s">/-/g</span>,<span class="s">"+"</span>).<span class="f">replace</span>(<span class="s">/_/g</span>,<span class="s">"/"</span>));
+  <span class="k">if</span> (payload.body?.data) <span class="k">return</span> <span class="f">dec</span>(payload.body.data);
+  <span class="k">const</span> html  = payload.parts?.<span class="f">find</span>(p => p.mimeType === <span class="s">"text/html"</span>);
+  <span class="k">const</span> plain = payload.parts?.<span class="f">find</span>(p => p.mimeType === <span class="s">"text/plain"</span>);
+  <span class="k">return</span> (html ?? plain) ? <span class="f">dec</span>((html ?? plain).body.data) : <span class="s">""</span>;
+}</pre>
+    </div>
+    <div class="tab-pane" id="gt3">
+<pre><span class="c">// ─── ARCHIVE (remove from inbox) ───────────────────────</span>
+<span class="k">export function</span> <span class="f">archiveMessage</span>(uid, id) {
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, `/messages/${id}/modify`, {
+      method: <span class="s">"POST"</span>,
+      body: <span class="t">JSON</span>.<span class="f">stringify</span>({ removeLabelIds: [<span class="s">"INBOX"</span>] }),
+    })
+  );
+}
+
+<span class="c">// ─── MARK AS READ ──────────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">markAsRead</span>(uid, id) {
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, `/messages/${id}/modify`, {
+      method: <span class="s">"POST"</span>,
+      body: <span class="t">JSON</span>.<span class="f">stringify</span>({ removeLabelIds: [<span class="s">"UNREAD"</span>] }),
+    })
+  );
+}
+
+<span class="c">// ─── TRASH MESSAGE ─────────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">trashMessage</span>(uid, id) {
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, `/messages/${id}/trash`, { method: <span class="s">"POST"</span> })
+  );
+}
+
+<span class="c">// ─── LIST LABELS ───────────────────────────────────────</span>
+<span class="k">export function</span> <span class="f">listLabels</span>(uid) {
+  <span class="k">return</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">gFetch</span>(t, <span class="s">"/labels"</span>).<span class="f">then</span>(d => d.labels ?? [])
+  );
+}
+
+<span class="c">// ─── SEARCH ────────────────────────────────────────────</span>
+<span class="k">export</span> <span class="k">const</span> <span class="f">searchEmails</span> = (uid, q, max = <span class="n">20</span>) => <span class="f">listMessages</span>(uid, q, max);
+
+<span class="c">// ─── USEFUL QUERIES ────────────────────────────────────
+// listMessages(uid, "is:unread")
+// listMessages(uid, "from:boss@company.com")
+// listMessages(uid, "has:attachment")
+// listMessages(uid, "subject:invoice after:2024/01/01")
+// listMessages(uid, "label:SENT")</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- SYNC.JS -->
+<section id="sync-engine">
+  <div class="sec-head"><span class="sec-num">14</span><h3>sync.js — Incremental Mail Sync</h3></div>
+  <div class="callout ok"><span class="callout-icon">⚡</span><div>Gmail's history API lets you do <strong>incremental sync</strong>. After the first full sync, store a <code>historyId</code>. Every poll only fetches changes since that ID — not the entire mailbox. Much faster.</div></div>
+  <div class="code-block">
+    <div class="code-header"><span class="code-label">src/sync.js</span><button class="copy-btn" onclick="copyEl('sync-code',this)">Copy</button></div>
+    <pre id="sync-code"><span class="k">import</span> { withToken }                      <span class="k">from</span> <span class="s">"./tokenManager.js"</span>;
+<span class="k">import</span> { updateSyncState, getUserFromDB } <span class="k">from</span> <span class="s">"./userDB.js"</span>;
+
+<span class="k">const</span> BASE = <span class="s">"https://gmail.googleapis.com/gmail/v1/users/me"</span>;
+
+<span class="c">// ─── INITIAL SYNC ──────────────────────────────────────
+// Run once after first login.
+// Gets the current historyId as the starting anchor.</span>
+<span class="k">export async function</span> <span class="f">initialSync</span>(uid) {
+  <span class="k">const</span> profile = <span class="k">await</span> <span class="f">withToken</span>(uid, t =>
+    <span class="f">fetch</span>(`${BASE}/profile`, { headers: { Authorization: `Bearer ${t}` } })
+      .<span class="f">then</span>(r => r.<span class="f">json</span>())
+  );
+  <span class="k">await</span> <span class="f">updateSyncState</span>(uid, profile.historyId);
+  <span class="k">return</span> { historyId: profile.historyId, total: profile.messagesTotal };
+}
+
+<span class="c">// ─── INCREMENTAL SYNC ──────────────────────────────────
+// Call this on every poll. Only fetches what changed.</span>
+<span class="k">export async function</span> <span class="f">incrementalSync</span>(uid) {
+  <span class="k">const</span> user = <span class="k">await</span> <span class="f">getUserFromDB</span>(uid);
+  <span class="k">if</span> (!user?.historyId) <span class="k">return</span> <span class="f">initialSync</span>(uid);
+
+  <span class="k">try</span> {
+    <span class="k">const</span> data = <span class="k">await</span> <span class="f">withToken</span>(uid, t =>
+      <span class="f">fetch</span>(`${BASE}/history?startHistoryId=${user.historyId}&historyTypes=messageAdded`, {
+        headers: { Authorization: `Bearer ${t}` }
+      }).<span class="f">then</span>(r => r.<span class="f">json</span>())
+    );
+
+    <span class="k">const</span> newMessages = (data.history ?? [])
+      .<span class="f">flatMap</span>(h => h.messagesAdded ?? [])
+      .<span class="f">map</span>(m => m.message);
+
+    <span class="k">if</span> (data.historyId) <span class="k">await</span> <span class="f">updateSyncState</span>(uid, data.historyId);
+
+    <span class="k">return</span> { newMessages, count: newMessages.length, historyId: data.historyId };
+
+  } <span class="k">catch</span> (err) {
+    <span class="c">// historyId too old (410) → fall back to full sync</span>
+    <span class="k">if</span> (err.message?.includes(<span class="s">"410"</span>)) <span class="k">return</span> <span class="f">initialSync</span>(uid);
+    <span class="k">throw</span> err;
+  }
+}
+
+<span class="c">// ─── POLL SYNC ─────────────────────────────────────────
+// Usage: setInterval(() => pollSync(uid, handleNewMail), 30_000)</span>
+<span class="k">export async function</span> <span class="f">pollSync</span>(uid, onNewMessages) {
+  <span class="k">const</span> result = <span class="k">await</span> <span class="f">incrementalSync</span>(uid);
+  <span class="k">if</span> (result.count > <span class="n">0</span>) <span class="k">await</span> <span class="f">onNewMessages</span>(result.newMessages);
+  <span class="k">return</span> result;
+}</pre>
+  </div>
+</section>
+
+<!-- PROD CHECKLIST -->
+<section id="prod-checklist">
+  <div class="sec-head"><span class="sec-num">15</span><h3>Production Checklist</h3></div>
+  <div class="checklist">
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">.env in .gitignore — no secrets committed</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">HTTPS enforced — OAuth won't work on HTTP</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Your prod domain added to Firebase authorized domains</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Your prod domain added to Google OAuth authorized origins</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Firestore security rules deployed — not open test mode</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Only requesting Gmail scopes you actually use</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">prompt:"consent" set — refreshToken returned on every login</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">refreshToken is stored in Firestore (you only get it once per consent)</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">Token refresh logic tested — access token auto-renews silently</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">initialSync() called after first login to set historyId</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">AUTH_REVOKED error handled — prompt user to re-login</span></label>
+    <label class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chkbox">✓</div><span class="chk-text">OAuth consent screen submitted for Google verification (public apps)</span></label>
+  </div>
+</section>
+
+<!-- DOCS -->
+<section id="docs">
+  <div class="sec-head"><span class="sec-num">16</span><h3>Official Documentation</h3></div>
+  <div class="steps">
+    <div class="step"><div class="step-n" style="background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.3);color:var(--yellow)">G</div><div class="step-b"><strong>Gmail API Reference</strong><p>Messages, threads, history, labels, send — full REST docs.</p><a class="ext-link" href="https://developers.google.com/gmail/api/reference/rest" target="_blank">↗ developers.google.com/gmail</a></div></div>
+    <div class="step"><div class="step-n" style="background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:var(--red)">F</div><div class="step-b"><strong>Firebase Auth — Google Sign-in</strong><p>Popup flow, token retrieval, onAuthStateChanged, error codes.</p><a class="ext-link" href="https://firebase.google.com/docs/auth/web/google-signin" target="_blank">↗ firebase.google.com/docs/auth</a></div></div>
+    <div class="step"><div class="step-n" style="background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.3);color:var(--orange)">D</div><div class="step-b"><strong>Firestore Documentation</strong><p>setDoc, getDoc, serverTimestamp, security rules guide.</p><a class="ext-link" href="https://firebase.google.com/docs/firestore" target="_blank">↗ firebase.google.com/docs/firestore</a></div></div>
+    <div class="step"><div class="step-n" style="background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.3);color:var(--cyan)">O</div><div class="step-b"><strong>Google OAuth 2.0 Token Refresh</strong><p>Refresh flow, revoking access, verification requirements.</p><a class="ext-link" href="https://developers.google.com/identity/protocols/oauth2/web-server" target="_blank">↗ OAuth2 Web Server Flow</a></div></div>
+    <div class="step"><div class="step-n" style="background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:var(--green)">H</div><div class="step-b"><strong>Gmail History API — Incremental Sync</strong><p>How historyId works, messageAdded events, handling 410 errors.</p><a class="ext-link" href="https://developers.google.com/gmail/api/reference/rest/v1/users.history/list" target="_blank">↗ users.history.list</a></div></div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+function toggleNav(){
+  const n=document.getElementById('sidebar'),h=document.getElementById('hamburger'),o=document.getElementById('nav-overlay');
+  n.classList.toggle('open');h.classList.toggle('open');o.classList.toggle('vis');
+}
+function closeNav(){
+  if(window.innerWidth<=768){
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('hamburger').classList.remove('open');
+    document.getElementById('nav-overlay').classList.remove('vis');
+  }
+}
+
+// Active nav
+const secs=document.querySelectorAll('section[id]');
+const navs=document.querySelectorAll('nav a.nav-link');
+new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      navs.forEach(a=>a.classList.remove('active'));
+      const a=document.querySelector(`nav a[href="#${e.target.id}"]`);
+      if(a)a.classList.add('active');
+    }
+  });
+},{threshold:.25}).observe&&secs.forEach(s=>new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){navs.forEach(a=>a.classList.remove('active'));const a=document.querySelector(`nav a[href="#${e.target.id}"]`);if(a)a.classList.add('active');}});
+},{threshold:.25}).observe(s));
+
+function toggleChk(l){l.classList.toggle('done')}
+
+function copyEl(id,btn){
+  navigator.clipboard.writeText(document.getElementById(id).innerText).then(()=>{
+    btn.textContent='Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},1800);
+  });
+}
+
+function switchTab(groupId,targetId){
+  const target=document.getElementById(targetId);
+  const allPanes=target.parentElement.querySelectorAll('.tab-pane');
+  const allTabs=document.getElementById(groupId).querySelectorAll('.file-tab');
+  allPanes.forEach(p=>p.classList.remove('active'));
+  allTabs.forEach(t=>t.classList.remove('active'));
+  target.classList.add('active');
+  const idx=Array.from(allPanes).indexOf(target);
+  if(allTabs[idx])allTabs[idx].classList.add('active');
+}
+
+function copyActiveTab(groupId,btn){
+  const block=document.getElementById(groupId).closest('section').querySelector('.tab-pane.active pre');
+  if(!block)return;
+  navigator.clipboard.writeText(block.innerText).then(()=>{
+    btn.textContent='Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},1800);
+  });
+}
+
+let savedEnv='';
+function genEnv(){
+  const v={
+    VITE_FIREBASE_API_KEY:document.getElementById('e1').value||'your_api_key',
+    VITE_FIREBASE_AUTH_DOMAIN:document.getElementById('e2').value||'your_project.firebaseapp.com',
+    VITE_FIREBASE_PROJECT_ID:document.getElementById('e3').value||'your_project_id',
+    VITE_FIREBASE_STORAGE_BUCKET:document.getElementById('e4').value||'your_project.appspot.com',
+    VITE_FIREBASE_MESSAGING_SENDER_ID:document.getElementById('e5').value||'your_sender_id',
+    VITE_FIREBASE_APP_ID:document.getElementById('e6').value||'your_app_id',
+    VITE_GOOGLE_CLIENT_ID:document.getElementById('e7').value||'your_client_id',
+    VITE_GOOGLE_CLIENT_SECRET:document.getElementById('e8').value||'your_client_secret',
+    VITE_APP_ENV:document.getElementById('e9').value||'development',
+  };
+  savedEnv=Object.entries(v).map(([k,val])=>`${k}=${val}`).join('\n');
+  const out=document.getElementById('env-out');
+  out.innerHTML=Object.entries(v).map(([k,val])=>`<span style="color:#7c9ef7">${k}</span>=<span style="color:#86efac">${val}</span>`).join('\n');
+  out.classList.add('show');
+  document.getElementById('env-copy-btn').style.display='inline-block';
+}
+function copyEnv(){
+  if(!savedEnv)return;
+  const btn=document.getElementById('env-copy-btn');
+  navigator.clipboard.writeText(savedEnv).then(()=>{
+    btn.textContent='Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},2000);
+  });
+}
+function clearEnv(){
+  ['e1','e2','e3','e4','e5','e6','e7','e8'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('e9').selectedIndex=0;
+  const out=document.getElementById('env-out');
+  out.classList.remove('show');out.innerHTML='';
+  document.getElementById('env-copy-btn').style.display='none';
+  savedEnv='';
+}
+</script>
+</body>
+</html>
